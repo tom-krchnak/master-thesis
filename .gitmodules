@@ -1,0 +1,16 @@
+[submodule "impl/libutility"]
+	path = impl/libutility
+	url = https://github.com/staticafi/libutility
+	branch = main
+[submodule "impl/binsalac"]
+	path = impl/binsalac
+	url = https://github.com/staticafi/binsalac
+	branch = main
+[submodule "impl/libsala"]
+	path = impl/libsala
+	url = https://github.com/staticafi/libsala
+	branch = main
+[submodule "impl/libllvmutl"]
+	path = impl/libllvmutl
+	url = https://github.com/staticafi/libllvmutl
+	branch = main
