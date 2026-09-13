@@ -33,3 +33,15 @@ target_link_libraries(salasym-lib
         utility
         ${BOOST_LIST_OF_LIBRARIES_TO_LINK_WITH}
 )
+
+add_executable(salasym)
+
+target_sources(salasym
+    PRIVATE
+        app/main.cpp
+)
+
+target_link_libraries(salasym
+    PRIVATE
+        salasym-lib
+)
