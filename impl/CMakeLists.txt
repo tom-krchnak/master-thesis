@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(binsalac LANGUAGES C CXX)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 include(GNUInstallDirs)
 
@@ -39,5 +41,6 @@ endif()
 
 add_subdirectory(libutility)
 add_subdirectory(libsala)
+add_subdirectory(salasym)
 add_subdirectory(libllvmutl)
 add_subdirectory(binsalac)
