@@ -1,5 +1,7 @@
 #include "salasym/expr.hpp"
 
+#include "utility/invariants.hpp"
+
 namespace sala::sym
 {
 
@@ -47,7 +49,7 @@ struct Expr::Node
             case ExprOp::ZExt:    return "zext(" + lhs->to_string() + ")";
         }
 
-        ASSERT( false && "unsupported ExprOp" );
+        UNREACHABLE();
     }
 };
 
@@ -93,7 +95,7 @@ Expr Expr::symbol( std::string name, u32 width )
 
 Expr Expr::add( const Expr &lhs, const Expr &rhs )
 {
-    ASSERT( lhs.width() == rhs.width() );
+    INVARIANT( lhs.width() == rhs.width() );
     // TODO: constant folding
     // TODO: optimizations: i.e. unit (x + 0 = x)
     return Expr( ExprOp::Add, lhs.width(), lhs, rhs );
@@ -101,13 +103,13 @@ Expr Expr::add( const Expr &lhs, const Expr &rhs )
 
 Expr Expr::sgt( const Expr &lhs, const Expr &rhs )
 {
-    ASSERT( lhs.width() == rhs.width() );
+    INVARIANT( lhs.width() == rhs.width() );
     return Expr( ExprOp::SGt, 8, lhs, rhs );
 }
 
 Expr Expr::zext( const Expr &src, u32 width )
 {
-    ASSERT( width >= src.width() );
+    INVARIANT( width >= src.width() );
     return Expr( ExprOp::ZExt, width, src );
 }
 
@@ -120,7 +122,7 @@ Expr Expr::address( ObjId id, u64 offset )
 
 Pointer Expr::as_pointer() const
 {
-    ASSERT( node( *this ).op == ExprOp::Address );
+    INVARIANT( node( *this ).op == ExprOp::Address );
     u64 raw = node( *this ).raw;
     return { ObjId( raw >> 32 ), raw & 0xffff'ffff };
 }

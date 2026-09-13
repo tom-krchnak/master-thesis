@@ -43,7 +43,7 @@ $(INSTALL_STAMP): CMakeLists.txt Makefile
 	touch $@
 
 $(SALASYM_STAMP): salac
-	$(CMAKE) --build $(BUILD_DIR) --target salasym-exec --parallel
+	$(CMAKE) --build $(BUILD_DIR) --target salasym --parallel
 	test -x "$(SALASYM)"
 	touch $@
 

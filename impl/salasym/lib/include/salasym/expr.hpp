@@ -1,6 +1,5 @@
 #pragma once
 
-#include "salasym/error.hpp"
 #include "salasym/types.hpp"
 
 #include <string>
