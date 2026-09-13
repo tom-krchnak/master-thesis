@@ -6,10 +6,19 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/src")
 target_sources(salasym-lib
     PUBLIC
         ${INC_DIR}/config.hpp
+        ${INC_DIR}/exec.hpp
         ${INC_DIR}/expr.hpp
+        ${INC_DIR}/memory.hpp
+        ${INC_DIR}/path_cond.hpp
+        ${INC_DIR}/search.hpp
+        ${INC_DIR}/search/dfs.hpp
+        ${INC_DIR}/state_store.hpp
+        ${INC_DIR}/state.hpp
         ${INC_DIR}/types.hpp
     PRIVATE
+        ${SRC_DIR}/exec.cpp
         ${SRC_DIR}/expr.cpp
+        ${SRC_DIR}/search.cpp
 
 )
 
