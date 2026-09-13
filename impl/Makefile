@@ -29,7 +29,7 @@ verify:
 	@test -f "$(SALAC)" || { echo 'salac not installed, run `make init`'; exit 2; }
 	@test -f "$(SALASYM)" || { echo 'build salasym with `make salasym`'; exit 2; }
 	@test -n "$(FILE)" || { echo 'usage: `make verify FILE=<file>`'; exit 2; }
-	
+
 	@$(RM) -r "$(OUTPUT_DIR)"
 	@echo input: $(FILE)
 	@echo ---

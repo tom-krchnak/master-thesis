@@ -45,7 +45,9 @@ struct Expr::Node
                                           + "+" + std::to_string( raw & 0xffff'ffff );
             case ExprOp::Add:     return "(" + lhs->to_string() + " + " + rhs->to_string() + ")";
             case ExprOp::Sub:     return "(" + lhs->to_string() + " - " + rhs->to_string() + ")";
+            case ExprOp::SLt:     return "(" + lhs->to_string() + " < " + rhs->to_string() + ")";
             case ExprOp::SGt:     return "(" + lhs->to_string() + " > " + rhs->to_string() + ")";
+            case ExprOp::LNot:    return "!(" + lhs->to_string() + ")";
             case ExprOp::ZExt:    return "zext(" + lhs->to_string() + ")";
         }
 
@@ -101,10 +103,21 @@ Expr Expr::add( const Expr &lhs, const Expr &rhs )
     return Expr( ExprOp::Add, lhs.width(), lhs, rhs );
 }
 
+Expr Expr::slt( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::SLt, 8, lhs, rhs );
+}
+
 Expr Expr::sgt( const Expr &lhs, const Expr &rhs )
 {
     INVARIANT( lhs.width() == rhs.width() );
     return Expr( ExprOp::SGt, 8, lhs, rhs );
+}
+
+Expr Expr::logical_not( const Expr &src )
+{
+    return Expr( ExprOp::LNot, src.width(), src );
 }
 
 Expr Expr::zext( const Expr &src, u32 width )

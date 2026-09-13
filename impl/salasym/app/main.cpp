@@ -5,23 +5,31 @@
 
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
-int main( int argc, char **argv )
+struct options
 {
-    if ( argc < 2 )
-    {
-        std::cerr << "usage: " << argv[ 0 ] << " INPUT_FILE" << "\n";
-        return 1;
-    }
+    std::string input;
+};
 
-    std::string path = argv[ 1 ];
-    std::ifstream in( path );
+static options parse_options( int argc, char **argv )
+{
+    options opts;
+
+    if ( argc < 2 )
+        throw std::runtime_error( "missing input file" );
+
+    opts.input = argv[ 1 ];
+
+    return opts;
+}
+
+static void salasym( const options &opts )
+{
+    std::ifstream in( opts.input );
     if ( !in )
-    {
-        std::cerr << "failed to open " << path << "\n";
-        return 1;
-    }
+        throw std::runtime_error( "failed to open " + opts.input );
 
     sala::Program program;
     in >> program;
@@ -29,14 +37,34 @@ int main( int argc, char **argv )
     sala::sym::ExecConfig config;
     sala::sym::Executor executor( program, config );
 
-    sala::sym::ExecState state = executor.make_initial_state( program.entry_function() );
+    sala::sym::ObjId result = executor.run();
 
-    // TODO: remove harcoded result size
-    sala::sym::ObjId result = executor.alloc( state, 32 );
-    state.memory.store( state.frames.back().param( 0 ),
-        sala::sym::Expr::address( result, 0 ) );
+    for ( const sala::sym::ExecState *final : executor.completed_states() )
+    {
+        auto ptr = sala::sym::Pointer( result );
+        const auto &expr = final->memory.load( ptr );
 
-    executor.run( state );
+        std::cout << "result = " << expr.to_string() << "\n";
+    }
+}
 
-    std::cout << "result = " << state.memory.load( { result, 0 } ).to_string() << "\n";
+int main( int argc, char **argv )
+{
+    try
+    {
+        options opts = parse_options( argc, argv );
+        salasym( opts );
+
+        return 0;
+    }
+    catch ( std::exception &e )
+    {
+        std::cerr << "error: " << e.what() << "\n";
+    }
+    catch ( ... )
+    {
+        std::cerr << "unknown error\n";
+    }
+
+    return 1;
 }

@@ -16,7 +16,9 @@ enum class ExprOp : u8
     Add,
     Sub,
 
+    SLt,
     SGt,
+    LNot,
 
     ZExt,
 
@@ -30,7 +32,9 @@ struct Expr
 
     static Expr add( const Expr &lhs, const Expr &rhs );
 
+    static Expr slt( const Expr &lhs, const Expr &rhs );
     static Expr sgt( const Expr &lhs, const Expr &rhs );
+    static Expr logical_not( const Expr &src );
     static Expr zext( const Expr &src, u32 width );
 
     static Expr address( ObjId id, u64 offset );

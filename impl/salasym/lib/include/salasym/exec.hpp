@@ -7,7 +7,8 @@
 #include "salasym/state_store.hpp"
 #include "salasym/types.hpp"
 
-#include <set>
+#include <span>
+
 
 namespace sala::sym
 {
@@ -20,13 +21,12 @@ struct Executor
         , _config( config )
     {}
 
-    void run( ExecState &initial );
+    ObjId run();
 
-    void exec( ExecState &state );
-
-    ExecState make_initial_state( u32 func_index );
-
-    ObjId alloc( ExecState &state, u32 width );
+    std::span< ExecState * const > completed_states() const
+    {
+        return _states.completed();
+    }
 
 private:
 
@@ -35,10 +35,8 @@ private:
 
     ptr< ISearcher > _searcher;
     StateStore _states;
-
     u32 _next_obj_id = 0;
     u32 _next_symbol_id = 0;
-    u32 _next_state_id = 0;
 
     void exec_integer( ExecState &state, const sala::Instruction &instr );
     bool exec_control( ExecState &state, const sala::Instruction &instr );
@@ -49,6 +47,12 @@ private:
     Frame make_frame( ExecState &state, u32 func_index );
 
     void terminate( ExecState &state );
+
+    void exec( ExecState &state );
+    ObjId init();
+
+    ObjId alloc( ExecState &state, u32 width );
+
 };
 
 } // namespace sala::sym

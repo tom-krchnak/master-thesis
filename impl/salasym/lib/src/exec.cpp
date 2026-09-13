@@ -4,14 +4,12 @@
 namespace sala::sym
 {
 
-void Executor::run( ExecState &initial )
+ObjId Executor::run()
 {
+    _states.reset();
     _searcher = make_searcher( _config.search );
 
-    _states.add( &initial );
-
-    std::array added = { &initial };
-    _searcher->update( nullptr, added, {} );
+    ObjId result = init();
 
     while ( !_states.empty() )
     {
@@ -19,14 +17,16 @@ void Executor::run( ExecState &initial )
 
         exec( curr );
     }
+
+    return result;
 }
 
 void Executor::exec( ExecState &state )
 {
     auto &frame = state.frames.back();
-    const auto &block = _program
-        .functions()[ frame.funct ]
-        .basic_blocks()[ frame.block ];
+
+    const auto &funct = _program.functions()[ frame.funct ];
+    const auto &block = funct.basic_blocks()[ frame.block ];
     const auto &instr = block.instructions()[ frame.instr ];
 
     using Opcode = sala::Instruction::Opcode;
@@ -43,8 +43,8 @@ void Executor::exec( ExecState &state )
             advance = false;
             break;
 
-        // case Opcode::COPY:
-        // case Opcode::ADD:
+        case Opcode::COPY:
+        case Opcode::ADD:
         // case Opcode::SUB:
         // case Opcode::MUL:
         // case Opcode::DIV:
@@ -58,7 +58,7 @@ void Executor::exec( ExecState &state )
         // case Opcode::TRUNCATE:
         // case Opcode::P2I:
         // case Opcode::I2P:
-        // case Opcode::LESS:
+        case Opcode::LESS:
         // case Opcode::LESS_EQUAL:
         case Opcode::GREATER:
         // case Opcode::GREATER_EQUAL:
@@ -67,8 +67,8 @@ void Executor::exec( ExecState &state )
             exec_integer( state, instr );
             break;
 
-        // case Opcode::JUMP:
-        // case Opcode::BRANCH:
+        case Opcode::JUMP:
+        case Opcode::BRANCH:
         case Opcode::CALL:
         case Opcode::RET:
             advance = exec_control( state, instr );
@@ -117,23 +117,57 @@ void Executor::exec_integer( ExecState &state,
 
     switch ( instr.opcode() )
     {
+        case Opcode::COPY:
+        {
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            Pointer dest = frame.local( ops[ 0 ] );
+            Expr value = instr.descriptors()[ 1 ] == Descriptor::LOCAL
+                ? state.memory.load( frame.local( ops[ 1 ] ) )
+                : Expr::constant( read_bytes_le( _program.constants()[ ops[ 1 ] ].bytes() ),
+                    state.memory.load( dest ).width() );
+
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL
+                || instr.descriptors()[ 1 ] == Descriptor::CONSTANT );
+            state.memory.store( dest, std::move( value ) );
+            break;
+        }
+
+        case Opcode::ADD:
+        {
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            Expr result = Expr::add(
+                state.memory.load( frame.local( ops[ 1 ] ) ),
+                state.memory.load( frame.local( ops[ 2 ] ) ) );
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::LESS:
         case Opcode::GREATER:
         {
             INVARIANT( instr.modifier() == Modifier::SIGNED );
             INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
             INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::CONSTANT );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL
+                || instr.descriptors()[ 2 ] == Descriptor::CONSTANT );
 
             const auto &ops = instr.operands();
-
             const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            Expr rhs = instr.descriptors()[ 2 ] == Descriptor::LOCAL
+                ? state.memory.load( frame.local( ops[ 2 ] ) )
+                : Expr::constant(
+                    read_bytes_le( _program.constants()[ ops[ 2 ] ].bytes() ), lhs.width() );
+            Expr result = instr.opcode() == Opcode::LESS
+                ? Expr::slt( lhs, rhs )
+                : Expr::sgt( lhs, rhs );
 
-            const auto &constant = _program.constants()[ ops[ 2 ] ];
-            Expr rhs = Expr::constant( read_bytes_le( constant.bytes() ), lhs.width() );
-
-            Expr result = Expr::sgt( lhs, rhs );
-
-            state.memory.store( frame.local( ops[ 0 ] ), result );
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
             break;
         }
 
@@ -165,8 +199,41 @@ bool Executor::exec_control( ExecState &state,
     using Opcode = sala::Instruction::Opcode;
     using Descriptor = sala::Instruction::Descriptor;
 
+    auto &frame = state.frames.back();
+    const auto &funct = _program.functions()[ frame.funct ];
+    const auto &block = funct.basic_blocks()[ frame.block ];
+
     switch ( instr.opcode() )
     {
+        case Opcode::JUMP:
+        {
+            INVARIANT( block.successors().size() == 1 );
+            frame.block = block.successors().front();
+            frame.instr = 0;
+            return false;
+        }
+
+        case Opcode::BRANCH:
+        {
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( block.successors().size() == 2 );
+
+            const Expr condition = state.memory.load( frame.local( instr.operands()[ 0 ] ) );
+            ExecState &forked = _states.fork( state );
+
+            state.path.add( Expr::logical_not( condition ) );
+            forked.path.add( condition );
+
+            frame.block = block.successors()[ 0 ];
+            frame.instr = 0;
+            forked.frames.back().block = block.successors()[ 1 ];
+            forked.frames.back().instr = 0;
+
+            std::array added = { &forked };
+            _searcher->update( &state, added, {} );
+            return false;
+        }
+
         case Opcode::CALL:
         {
             INVARIANT( instr.descriptors()[ 0 ] == Descriptor::FUNCTION );
@@ -307,16 +374,25 @@ Frame Executor::make_frame( ExecState &state, u32 func_index )
     return frame;
 }
 
-ExecState Executor::make_initial_state( u32 func_index )
+ObjId Executor::init()
 {
-    ExecState state{ StateId( _next_state_id++ ) };
-    state.frames.push_back( make_frame( state, func_index ) );
-    return state;
+    ExecState &initial = _states.create();
+    initial.frames.push_back( make_frame( initial, _program.entry_function() ) );
+
+    // TODO: remove hardcoded result size
+    ObjId result = alloc( initial, 32 );
+    initial.memory.store( initial.frames.back().param( 0 ),
+        Expr::address( result, 0 ) );
+
+    std::array added = { &initial };
+    _searcher->update( nullptr, added, {} );
+
+    return result;
 }
 
 void Executor::terminate( ExecState &state )
 {
-    _states.remove( &state );
+    _states.complete( &state );
 
     std::array removed = { &state };
     _searcher->update( nullptr, {}, removed );

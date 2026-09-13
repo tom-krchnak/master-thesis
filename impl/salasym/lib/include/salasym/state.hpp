@@ -7,6 +7,8 @@
 namespace sala::sym
 {
 
+struct StateStore;
+
 struct StateId
 {
     explicit StateId( u32 id )
@@ -44,18 +46,14 @@ private:
 struct ExecState
 {
     explicit ExecState( StateId id )
-        : _id( id )
+        : id( id )
     {}
 
-    StateId id() const { return _id; }
+    StateId id;
 
     std::vector< Frame > frames;
     Memory memory;
     PathCondition path;
-
-private:
-
-    StateId _id;
 };
 
 
@@ -63,7 +61,7 @@ struct ExecStateIDCmp
 {
     bool operator()( const ExecState *lhs, const ExecState *rhs ) const
     {
-        return lhs->id() < rhs->id();
+        return lhs->id < rhs->id;
     }
 };
 
