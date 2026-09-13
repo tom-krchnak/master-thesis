@@ -37,16 +37,23 @@ struct Expr::Node
 
     std::string to_string() const
     {
+        const auto binary = [ this ]( const char *op )
+        {
+            return "(" + lhs->to_string() + " " + op + " " + rhs->to_string() + ")";
+        };
+
         switch ( op )
         {
             case ExprOp::Const:   return std::to_string( raw );
             case ExprOp::Symbol:  return name;
             case ExprOp::Address: return "&obj" + std::to_string( raw >> 32 )
                                           + "+" + std::to_string( raw & 0xffff'ffff );
-            case ExprOp::Add:     return "(" + lhs->to_string() + " + " + rhs->to_string() + ")";
-            case ExprOp::Sub:     return "(" + lhs->to_string() + " - " + rhs->to_string() + ")";
-            case ExprOp::SLt:     return "(" + lhs->to_string() + " < " + rhs->to_string() + ")";
-            case ExprOp::SGt:     return "(" + lhs->to_string() + " > " + rhs->to_string() + ")";
+            case ExprOp::Add:     return binary( "+" );
+            case ExprOp::Sub:     return binary( "-" );
+            case ExprOp::Mul:     return binary( "*" );
+            case ExprOp::SLt:     return binary( "<" );
+            case ExprOp::SGt:     return binary( ">" );
+            case ExprOp::Eq:      return binary( "==" );
             case ExprOp::LNot:    return "!(" + lhs->to_string() + ")";
             case ExprOp::ZExt:    return "zext(" + lhs->to_string() + ")";
         }
@@ -103,6 +110,18 @@ Expr Expr::add( const Expr &lhs, const Expr &rhs )
     return Expr( ExprOp::Add, lhs.width(), lhs, rhs );
 }
 
+Expr Expr::sub( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::Sub, lhs.width(), lhs, rhs );
+}
+
+Expr Expr::mul( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::Mul, lhs.width(), lhs, rhs );
+}
+
 Expr Expr::slt( const Expr &lhs, const Expr &rhs )
 {
     INVARIANT( lhs.width() == rhs.width() );
@@ -113,6 +132,12 @@ Expr Expr::sgt( const Expr &lhs, const Expr &rhs )
 {
     INVARIANT( lhs.width() == rhs.width() );
     return Expr( ExprOp::SGt, 8, lhs, rhs );
+}
+
+Expr Expr::eq( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::Eq, 8, lhs, rhs );
 }
 
 Expr Expr::logical_not( const Expr &src )

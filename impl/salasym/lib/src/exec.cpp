@@ -45,8 +45,8 @@ void Executor::exec( ExecState &state )
 
         case Opcode::COPY:
         case Opcode::ADD:
-        // case Opcode::SUB:
-        // case Opcode::MUL:
+        case Opcode::SUB:
+        case Opcode::MUL:
         // case Opcode::DIV:
         // case Opcode::REM:
         // case Opcode::AND:
@@ -62,7 +62,7 @@ void Executor::exec( ExecState &state )
         // case Opcode::LESS_EQUAL:
         case Opcode::GREATER:
         // case Opcode::GREATER_EQUAL:
-        // case Opcode::EQUAL:
+        case Opcode::EQUAL:
         // case Opcode::UNEQUAL:
             exec_integer( state, instr );
             break;
@@ -141,9 +141,40 @@ void Executor::exec_integer( ExecState &state,
             INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
 
             const auto &ops = instr.operands();
-            Expr result = Expr::add(
-                state.memory.load( frame.local( ops[ 1 ] ) ),
-                state.memory.load( frame.local( ops[ 2 ] ) ) );
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            Expr result = Expr::add( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::SUB:
+        {
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            Expr result = Expr::sub( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::MUL:
+        {
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            Expr result = Expr::mul( lhs, rhs );
+
             state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
             break;
         }
@@ -166,6 +197,21 @@ void Executor::exec_integer( ExecState &state,
             Expr result = instr.opcode() == Opcode::LESS
                 ? Expr::slt( lhs, rhs )
                 : Expr::sgt( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::EQUAL:
+        {
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            Expr result = Expr::eq( lhs, rhs );
 
             state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
             break;

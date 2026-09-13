@@ -15,9 +15,11 @@ enum class ExprOp : u8
 
     Add,
     Sub,
+    Mul,
 
     SLt,
     SGt,
+    Eq,
     LNot,
 
     ZExt,
@@ -31,9 +33,12 @@ struct Expr
     static Expr symbol( std::string name, u32 width );
 
     static Expr add( const Expr &lhs, const Expr &rhs );
+    static Expr sub( const Expr &lhs, const Expr &rhs );
+    static Expr mul( const Expr &lhs, const Expr &rhs );
 
     static Expr slt( const Expr &lhs, const Expr &rhs );
     static Expr sgt( const Expr &lhs, const Expr &rhs );
+    static Expr eq( const Expr &lhs, const Expr &rhs );
     static Expr logical_not( const Expr &src );
     static Expr zext( const Expr &src, u32 width );
 
