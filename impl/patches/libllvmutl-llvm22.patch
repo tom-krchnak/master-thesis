@@ -1,0 +1,112 @@
+diff --git a/src/llvm_utils.cpp b/src/llvm_utils.cpp
+index 176e933..c6c6190 100644
+--- a/src/llvm_utils.cpp
++++ b/src/llvm_utils.cpp
+@@ -7,6 +7,7 @@
+ #    pragma warning(push)
+ #    pragma warning(disable : 4624 4996 4146 4800 4996 4005 4355 4244 4267)
+ #endif
++#include <llvm/Config/llvm-config.h>
+ #include <llvm/IR/Module.h>
+ #include <llvm/IR/Function.h>
+ #include <llvm/IR/Instruction.h>
+@@ -20,7 +21,11 @@
+ #include <llvm/IR/PassManager.h>
+ #include <llvm/IRReader/IRReader.h>
+ #include <llvm/Passes/PassBuilder.h>
+-#include <llvm/Passes/PassPlugin.h>
++#if LLVM_VERSION_MAJOR >= 22
++#    include <llvm/Plugins/PassPlugin.h>
++#else
++#    include <llvm/Passes/PassPlugin.h>
++#endif
+ #include <llvm/Pass.h>
+ #include <llvm/Support/raw_ostream.h>
+ #include <llvm/Support/SourceMgr.h>
+@@ -64,7 +69,11 @@ std::size_t llvm_num_storage_bits(llvm::Type* const type, llvm::Module& M)
+ {
+     if (type->isIntegerTy())
+         return llvm::cast<llvm::IntegerType>(type)->getBitWidth();
++#if LLVM_VERSION_MAJOR >= 22
++    else if (type->isHalfTy() || type->isFloatTy() || type->isDoubleTy() || type->isFP128Ty() || type->isX86_AMXTy() || type->isBFloatTy())
++#else
+     else if (type->isHalfTy() || type->isFloatTy() || type->isDoubleTy() || type->isFP128Ty() || type->isX86_MMXTy() || type->isBFloatTy())
++#endif
+         return M.getDataLayout().getTypeSizeInBits(type);
+     else if (type->isPointerTy())
+         return M.getDataLayout().getPointerSizeInBits();
+@@ -123,7 +132,11 @@ llvm::Instruction* llvm_constant_expr_to_instruction(llvm::ConstantExpr* const e
+                     expression->getOperand(0),
+                     expression->getOperand(1),
+                     expression->getName(),
++#if LLVM_VERSION_MAJOR >= 22
++                    succ_instruction->getIterator());
++#else
+                     succ_instruction);
++#endif
+ 
+     case llvm::Instruction::Trunc:
+     case llvm::Instruction::ZExt:
+@@ -142,7 +155,11 @@ llvm::Instruction* llvm_constant_expr_to_instruction(llvm::ConstantExpr* const e
+                     expression->getOperand(0),
+                     expression->getType(),
+                     expression->getName(),
++#if LLVM_VERSION_MAJOR >= 22
++                    succ_instruction->getIterator());
++#else
+                     succ_instruction);
++#endif
+ 
+     case llvm::Instruction::GetElementPtr:
+         {
+@@ -159,26 +176,49 @@ llvm::Instruction* llvm_constant_expr_to_instruction(llvm::ConstantExpr* const e
+                             expression->getOperand(0),
+                             expression->getType(),
+                             expression->getName(),
++#if LLVM_VERSION_MAJOR >= 22
++                            succ_instruction->getIterator());
++#else
+                             succ_instruction);
++#endif
+ 
+             return llvm::GetElementPtrInst::Create(
+                         llvm::cast<llvm::GetElementPtrInst>(expression->getAsInstruction())->getSourceElementType(),
+                         expression->getOperand(0),
++#if LLVM_VERSION_MAJOR >= 22
++                        idxs,
++#else
+                         llvm::makeArrayRef(idxs),
++#endif
+                         expression->getName(),
++#if LLVM_VERSION_MAJOR >= 22
++                        succ_instruction->getIterator());
++#else
+                         succ_instruction);
++#endif
+         }
+ 
+     case llvm::Instruction::ICmp:
+         {
++#if LLVM_VERSION_MAJOR >= 22
++            auto* const comparison = llvm::cast<llvm::CmpInst>(expression->getAsInstruction());
++            auto const predicate = comparison->getPredicate();
++            comparison->deleteValue();
++#else
++            auto const predicate = static_cast<llvm::CmpInst::Predicate>(expression->getPredicate());
++#endif
+ 
+             return ::llvm::ICmpInst::Create(
+                         static_cast<llvm::Instruction::OtherOps>(expression->getOpcode()),
+-                        (llvm::CmpInst::Predicate)expression->getPredicate(),
++                        predicate,
+                         expression->getOperand(0),
+                         expression->getOperand(1),
+                         expression->getName(),
++#if LLVM_VERSION_MAJOR >= 22
++                        succ_instruction->getIterator());
++#else
+                         succ_instruction);
++#endif
+         }
+ 
+     case llvm::Instruction::Select:

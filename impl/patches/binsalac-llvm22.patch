@@ -1,0 +1,74 @@
+diff --git a/llvm2llvm/llvm_simplifier.cpp b/llvm2llvm/llvm_simplifier.cpp
+index f23c892..1da7cf3 100644
+--- a/llvm2llvm/llvm_simplifier.cpp
++++ b/llvm2llvm/llvm_simplifier.cpp
+@@ -9,6 +9,7 @@
+ #    pragma warning(push)
+ #    pragma warning(disable : 4624 4996 4146 4800 4996 4005 4355 4244 4267)
+ #endif
++#include <llvm/Config/llvm-config.h>
+ #include <llvm/IR/Module.h>
+ #include <llvm/IR/Function.h>
+ #include <llvm/IR/Instruction.h>
+@@ -23,7 +24,11 @@
+ #include <llvm/IR/PassManager.h>
+ #include <llvm/IRReader/IRReader.h>
+ #include <llvm/Passes/PassBuilder.h>
+-#include <llvm/Passes/PassPlugin.h>
++#if LLVM_VERSION_MAJOR >= 22
++#    include <llvm/Plugins/PassPlugin.h>
++#else
++#    include <llvm/Passes/PassPlugin.h>
++#endif
+ #include <llvm/Pass.h>
+ #include <llvm/Support/raw_ostream.h>
+ #include <llvm/Support/SourceMgr.h>
+@@ -163,7 +168,11 @@ static void eliminate_select_instruction(llvm::SelectInst* const llvm_select_ins
+         llvm_select_instr->getOperand(1)->getType(),
+         llvm_select_instr->getNumOperands(),
+         "",
++#if LLVM_VERSION_MAJOR >= 22
++        llvm_select_instr->getIterator()
++#else
+         llvm_select_instr
++#endif
+         );
+     phi->addIncoming(llvm_select_instr->getOperand(1), true_block);
+     phi->addIncoming(llvm_select_instr->getOperand(2), false_block);
+diff --git a/llvm2sala/compiler.cpp b/llvm2sala/compiler.cpp
+index feccde9..6fcb6c0 100644
+--- a/llvm2sala/compiler.cpp
++++ b/llvm2sala/compiler.cpp
+@@ -10,6 +10,7 @@
+ #    pragma warning(push)
+ #    pragma warning(disable : 4624 4996 4146 4800 4996 4005 4355 4244 4267)
+ #endif
++#include <llvm/Config/llvm-config.h>
+ #include <llvm/IR/Module.h>
+ #include <llvm/IR/Function.h>
+ #include <llvm/IR/Instruction.h>
+@@ -23,7 +24,11 @@
+ #include <llvm/IR/PassManager.h>
+ #include <llvm/IRReader/IRReader.h>
+ #include <llvm/Passes/PassBuilder.h>
+-#include <llvm/Passes/PassPlugin.h>
++#if LLVM_VERSION_MAJOR >= 22
++#    include <llvm/Plugins/PassPlugin.h>
++#else
++#    include <llvm/Passes/PassPlugin.h>
++#endif
+ #include <llvm/Pass.h>
+ #include <llvm/Support/raw_ostream.h>
+ #include <llvm/Support/SourceMgr.h>
+@@ -157,7 +162,11 @@ void compile_llvm_file(std::filesystem::path const& llvm_file_pathname, sala::Pr
+         }
+     }
+ 
++#if LLVM_VERSION_MAJOR >= 22
++    P.set_system(M->getTargetTriple().str());
++#else
+     P.set_system(M->getTargetTriple());
++#endif
+     P.set_num_cpu_bits((std::uint16_t)(8U * M->getDataLayout().getPointerSize()));
+ 
+     std::string program_name{ llvm_file_pathname.filename().replace_extension("").string() };
