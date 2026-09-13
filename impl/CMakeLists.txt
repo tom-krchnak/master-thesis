@@ -44,3 +44,10 @@ add_subdirectory(libsala)
 add_subdirectory(salasym)
 add_subdirectory(libllvmutl)
 add_subdirectory(binsalac)
+
+add_custom_target(salac
+    DEPENDS
+        llvm2llvm
+        llvm2sala
+        sala2sala
+)

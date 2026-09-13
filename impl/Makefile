@@ -1,19 +1,44 @@
 CMAKE ?= cmake
-BUILD_DIR ?= build
-BUILD_TYPE ?= Release
+PRESET ?= release
 
-INSTALL_DIR ?= $(abspath $(BUILD_DIR))/install
-INSTALL_STAMP := $(INSTALL_DIR)/.salac-installed
-SALASYM := $(BUILD_DIR)/salasym/salasym
-SALASYM_STAMP := $(BUILD_DIR)/.salasym-built
+BUILD_DIR ?= ./build
+SALAC   := $(BUILD_DIR)/$(PRESET)/install/bin/salac.py
+SALASYM := $(BUILD_DIR)/$(PRESET)/salasym/salasym
 
+FILE ?=
+FILE_STEM := $(basename $(notdir $(FILE)))
+OUTPUT_DIR ?= out/$(FILE_STEM)
 
-NAME ?=
-OUTPUT_DIR ?= out
 PATCH_DIR := $(abspath patches)
 
 
-.PHONY: patch salac compile verify clean
+.PHONY: patch init salasym verify
+
+init:
+	$(CMAKE) --preset debug
+	$(CMAKE) --preset release
+
+	$(CMAKE) --build --preset release --target salac
+	$(CMAKE) --install $(BUILD_DIR)/release
+
+salasym:
+# 	$(CMAKE) --preset $(PRESET)
+	$(CMAKE) --build --preset $(PRESET) --target salasym
+
+verify:
+	@test -f "$(SALAC)" || { echo 'salac not installed, run `make init`'; exit 2; }
+	@test -f "$(SALASYM)" || { echo 'build salasym with `make salasym`'; exit 2; }
+	@test -n "$(FILE)" || { echo 'usage: `make verify FILE=<file>`'; exit 2; }
+	
+	@$(RM) -r "$(OUTPUT_DIR)"
+	@echo input: $(FILE)
+	@echo ---
+
+	@$(SALAC) --input "$(FILE)" --output "$(OUTPUT_DIR)" --opt 2
+	@$(SALASYM) "$(OUTPUT_DIR)/$(FILE_STEM).json"
+
+clean:
+	$(RM) -r build
 
 patch:
 	@apply_patch() { \
@@ -30,33 +55,3 @@ patch:
 	apply_patch libllvmutl "$(PATCH_DIR)/libllvmutl-llvm22.patch"; \
 	apply_patch libsala "$(PATCH_DIR)/libsala-boost-json.patch"; \
 	apply_patch binsalac "$(PATCH_DIR)/binsalac-llvm22.patch"
-	$(RM) "$(INSTALL_STAMP)"
-
-salac: $(INSTALL_STAMP)
-
-$(INSTALL_STAMP): CMakeLists.txt Makefile
-	$(CMAKE) -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
-		-DCMAKE_INSTALL_PREFIX=$(INSTALL_DIR) \
-		-DBINSALAC_INSTALL=ON
-	$(CMAKE) --build $(BUILD_DIR) --parallel
-	$(CMAKE) --install $(BUILD_DIR)
-	touch $@
-
-$(SALASYM_STAMP): salac
-	$(CMAKE) --build $(BUILD_DIR) --target salasym --parallel
-	test -x "$(SALASYM)"
-	touch $@
-
-verify: compile $(SALASYM_STAMP)
-	./$(SALASYM) "$(OUTPUT_DIR)/$(NAME)/$(NAME).json"
-
-compile: salac
-	@test -n "$(NAME)" || { printf '%s\n' 'Usage: make compile NAME=<source-name>'; exit 2; }
-	$(RM) -r "$(OUTPUT_DIR)/$(NAME)"
-	./$(BUILD_DIR)/install/bin/salac.py \
-		--input ./data/$(NAME).c \
-		--output $(OUTPUT_DIR)/$(NAME) \
-		--opt 2
-
-clean:
-	$(RM) -r build

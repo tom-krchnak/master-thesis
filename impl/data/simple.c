@@ -1,4 +1,4 @@
-int main()
+int main( void )
 {
-    return 0;
+    return __VERIFIER_nondet_int() > 0;
 }
