@@ -51,8 +51,14 @@ struct Expr::Node
             case ExprOp::Add:     return binary( "+" );
             case ExprOp::Sub:     return binary( "-" );
             case ExprOp::Mul:     return binary( "*" );
+            case ExprOp::And:     return binary( "&" );
+            case ExprOp::Or:      return binary( "|" );
+            case ExprOp::Xor:     return binary( "^" );
+            case ExprOp::Shl:     return binary( "<<" );
+            case ExprOp::LShr:    return binary( ">>" );
             case ExprOp::SLt:     return binary( "<" );
             case ExprOp::SGt:     return binary( ">" );
+            case ExprOp::UGt:     return binary( ">" );
             case ExprOp::Eq:      return binary( "==" );
             case ExprOp::LNot:    return "!(" + lhs->to_string() + ")";
             case ExprOp::ZExt:    return "zext(" + lhs->to_string() + ")";
@@ -122,6 +128,36 @@ Expr Expr::mul( const Expr &lhs, const Expr &rhs )
     return Expr( ExprOp::Mul, lhs.width(), lhs, rhs );
 }
 
+Expr Expr::bit_and( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::And, lhs.width(), lhs, rhs );
+}
+
+Expr Expr::bit_or( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::Or, lhs.width(), lhs, rhs );
+}
+
+Expr Expr::bit_xor( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::Xor, lhs.width(), lhs, rhs );
+}
+
+Expr Expr::shl( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::Shl, lhs.width(), lhs, rhs );
+}
+
+Expr Expr::lshr( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::LShr, lhs.width(), lhs, rhs );
+}
+
 Expr Expr::slt( const Expr &lhs, const Expr &rhs )
 {
     INVARIANT( lhs.width() == rhs.width() );
@@ -132,6 +168,12 @@ Expr Expr::sgt( const Expr &lhs, const Expr &rhs )
 {
     INVARIANT( lhs.width() == rhs.width() );
     return Expr( ExprOp::SGt, 8, lhs, rhs );
+}
+
+Expr Expr::ugt( const Expr &lhs, const Expr &rhs )
+{
+    INVARIANT( lhs.width() == rhs.width() );
+    return Expr( ExprOp::UGt, 8, lhs, rhs );
 }
 
 Expr Expr::eq( const Expr &lhs, const Expr &rhs )

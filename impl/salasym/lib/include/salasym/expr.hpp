@@ -16,9 +16,15 @@ enum class ExprOp : u8
     Add,
     Sub,
     Mul,
+    And,
+    Or,
+    Xor,
+    Shl,
+    LShr,
 
     SLt,
     SGt,
+    UGt,
     Eq,
     LNot,
 
@@ -35,9 +41,15 @@ struct Expr
     static Expr add( const Expr &lhs, const Expr &rhs );
     static Expr sub( const Expr &lhs, const Expr &rhs );
     static Expr mul( const Expr &lhs, const Expr &rhs );
+    static Expr bit_and( const Expr &lhs, const Expr &rhs );
+    static Expr bit_or( const Expr &lhs, const Expr &rhs );
+    static Expr bit_xor( const Expr &lhs, const Expr &rhs );
+    static Expr shl( const Expr &lhs, const Expr &rhs );
+    static Expr lshr( const Expr &lhs, const Expr &rhs );
 
     static Expr slt( const Expr &lhs, const Expr &rhs );
     static Expr sgt( const Expr &lhs, const Expr &rhs );
+    static Expr ugt( const Expr &lhs, const Expr &rhs );
     static Expr eq( const Expr &lhs, const Expr &rhs );
     static Expr logical_not( const Expr &src );
     static Expr zext( const Expr &src, u32 width );

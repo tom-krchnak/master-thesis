@@ -49,11 +49,11 @@ void Executor::exec( ExecState &state )
         case Opcode::MUL:
         // case Opcode::DIV:
         // case Opcode::REM:
-        // case Opcode::AND:
-        // case Opcode::OR:
-        // case Opcode::XOR:
-        // case Opcode::SHL:
-        // case Opcode::SHR:
+        case Opcode::AND:
+        case Opcode::OR:
+        case Opcode::XOR:
+        case Opcode::SHL:
+        case Opcode::SHR:
         case Opcode::EXTEND:
         // case Opcode::TRUNCATE:
         // case Opcode::P2I:
@@ -179,10 +179,97 @@ void Executor::exec_integer( ExecState &state,
             break;
         }
 
+        case Opcode::AND:
+        {
+            INVARIANT( instr.modifier() == Modifier::NONE );
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            Expr result = Expr::bit_and( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::OR:
+        {
+            INVARIANT( instr.modifier() == Modifier::NONE );
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            Expr result = Expr::bit_or( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::XOR:
+        {
+            INVARIANT( instr.modifier() == Modifier::NONE );
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            Expr result = Expr::bit_xor( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::SHL:
+        {
+            INVARIANT( instr.modifier() == Modifier::NONE );
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::CONSTANT );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            Expr rhs = Expr::constant(
+                read_bytes_le( _program.constants()[ ops[ 2 ] ].bytes() ), lhs.width() );
+            Expr result = Expr::shl( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
+        case Opcode::SHR:
+        {
+            INVARIANT( instr.modifier() == Modifier::UNSIGNED );
+            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
+            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::CONSTANT );
+
+            const auto &ops = instr.operands();
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            Expr rhs = Expr::constant(
+                read_bytes_le( _program.constants()[ ops[ 2 ] ].bytes() ), lhs.width() );
+            Expr result = Expr::lshr( lhs, rhs );
+
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
+            break;
+        }
+
         case Opcode::LESS:
         case Opcode::GREATER:
         {
-            INVARIANT( instr.modifier() == Modifier::SIGNED );
+            INVARIANT(
+                ( instr.opcode() == Opcode::LESS
+                    && instr.modifier() == Modifier::SIGNED )
+                || ( instr.opcode() == Opcode::GREATER
+                    && ( instr.modifier() == Modifier::SIGNED
+                        || instr.modifier() == Modifier::UNSIGNED ) ) );
             INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
             INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
             INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL
@@ -196,7 +283,9 @@ void Executor::exec_integer( ExecState &state,
                     read_bytes_le( _program.constants()[ ops[ 2 ] ].bytes() ), lhs.width() );
             Expr result = instr.opcode() == Opcode::LESS
                 ? Expr::slt( lhs, rhs )
-                : Expr::sgt( lhs, rhs );
+                : instr.modifier() == Modifier::SIGNED
+                    ? Expr::sgt( lhs, rhs )
+                    : Expr::ugt( lhs, rhs );
 
             state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
             break;
@@ -332,7 +421,8 @@ void Executor::exec_external_call( ExecState &state,
 
     const auto &function = _program.functions()[ target ];
 
-    if ( function.name() == "__VERIFIER_nondet_int" )
+    if ( function.name() == "__VERIFIER_nondet_int"
+        || function.name() == "__VERIFIER_nondet_uint" )
     {
         auto &frame = state.frames.back();
 
