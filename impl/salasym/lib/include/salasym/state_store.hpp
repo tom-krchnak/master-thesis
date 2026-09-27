@@ -26,7 +26,9 @@ struct StateStore
 
     void complete( ExecState *state )
     {
-        INVARIANT( _active.erase( state ) == 1 );
+        const auto erased = _active.erase( state );
+        INVARIANT( erased == 1 );
+
         _completed.push_back( state );
     }
 

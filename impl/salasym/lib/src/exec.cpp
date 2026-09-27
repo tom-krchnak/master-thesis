@@ -75,17 +75,17 @@ void Executor::exec( ExecState &state )
             break;
 
         case Opcode::ADDRESS:
-        // case Opcode::LOAD:
+        // case Opcode::LOAD: // TODO1
         case Opcode::STORE:
         // case Opcode::MEMCPY:
         // case Opcode::MEMMOVE:
         // case Opcode::MEMSET:
-        // case Opcode::MOVEPTR:
+        // case Opcode::MOVEPTR: // TODO1
         // case Opcode::ALLOCA:
         // case Opcode::STACKSAVE:
         // case Opcode::STACKRESTORE:
-        // case Opcode::MALLOC:
-        // case Opcode::FREE:
+        // case Opcode::MALLOC: // TODO2
+        // case Opcode::FREE: // TODO2
             exec_memory( state, instr );
             break;
 
@@ -306,6 +306,7 @@ bool Executor::exec_control( ExecState &state,
                 state.memory.store( callee.param( u32( i ) ), value );
             }
 
+            ++caller.instr;
             state.frames.push_back( std::move( callee ) );
             return false;
         }
@@ -385,6 +386,7 @@ void Executor::exec_memory( ExecState &state,
             const Expr &ptr_value = state.memory.load( frame.param( ops[ 0 ] ) );
             const Expr &value = state.memory.load( frame.local( ops[ 1 ] ) );
 
+            // TODO: ptr_value can be symbolic, fork/ite expr
             state.memory.store( ptr_value.as_pointer(), value );
             break;
         }

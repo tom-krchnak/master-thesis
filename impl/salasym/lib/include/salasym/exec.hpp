@@ -35,6 +35,7 @@ private:
 
     ptr< ISearcher > _searcher;
     StateStore _states;
+
     u32 _next_obj_id = 0;
     u32 _next_symbol_id = 0;
 
