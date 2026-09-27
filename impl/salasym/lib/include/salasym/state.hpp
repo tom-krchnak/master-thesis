@@ -4,6 +4,8 @@
 #include "salasym/path_cond.hpp"
 #include "salasym/types.hpp"
 
+#include <optional>
+
 namespace sala::sym
 {
 
@@ -23,12 +25,17 @@ private:
     u32 _id;
 };
 
-
-struct Frame
+struct ProgramLocation
 {
     u32 funct;
     u32 block;
     u32 instr;
+};
+
+struct Frame
+{
+    ProgramLocation loc;
+    std::optional< ProgramLocation > call_site;
 
     Pointer param( u32 idx ) const { return { _params[ idx ], 0 }; }
     Pointer local( u32 idx ) const { return { _locals[ idx ], 0 }; }

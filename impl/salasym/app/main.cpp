@@ -37,14 +37,16 @@ static void salasym( const options &opts )
     sala::sym::ExecConfig config;
     sala::sym::Executor executor( program, config );
 
-    sala::sym::ObjId result = executor.run();
+    executor.run();
 
-    for ( const sala::sym::ExecState *final : executor.completed_states() )
+    for ( const auto &record : executor.records() )
     {
-        auto ptr = sala::sym::Pointer( result );
-        const auto &expr = final->memory.load( ptr );
+        const auto &loc = record.location;
 
-        std::cout << "result = " << expr.to_string() << "\n";
+        std::cout << "candidate path: "
+            << to_str( record.stop.kind ) << " at "
+            << loc.funct << ":" << loc.block << ":" << loc.instr
+            << "\n";
     }
 }
 

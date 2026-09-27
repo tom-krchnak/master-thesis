@@ -1,10 +1,12 @@
 #include "salasym/exec.hpp"
 
+#include <stdexcept>
+
 
 namespace sala::sym
 {
 
-ObjId Executor::run()
+void Executor::run()
 {
     _states.reset();
     _searcher = make_searcher( _config.search );
@@ -15,33 +17,29 @@ ObjId Executor::run()
     {
         ExecState &curr = _searcher->select();
 
-        exec( curr );
+        step( curr );
     }
-
-    return result;
 }
 
-void Executor::exec( ExecState &state )
+StepOutcome Executor::step( ExecState &state ) const
 {
-    auto &frame = state.frames.back();
+    const auto &frame = state.frames.back();
 
-    const auto &funct = _program.functions()[ frame.funct ];
-    const auto &block = funct.basic_blocks()[ frame.block ];
-    const auto &instr = block.instructions()[ frame.instr ];
-
-    using Opcode = sala::Instruction::Opcode;
-
-    bool advance = true;
+    const auto &funct = _program.functions()[ frame.loc.funct ];
+    const auto &block = funct.basic_blocks()[ frame.loc.block ];
+    const auto &instr = block.instructions()[ frame.loc.instr ];
 
     switch ( instr.opcode() )
     {
         case Opcode::NOP:
-            break;
+            if ( instr.modifier() != Modifier::NONE )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+            return Advance{};
 
         case Opcode::HALT:
-            terminate( state );
-            advance = false;
-            break;
+            if ( instr.modifier() != Modifier::NONE )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+            return Stop{ StopKind::Halt };
 
         case Opcode::COPY:
         case Opcode::ADD:
@@ -64,15 +62,13 @@ void Executor::exec( ExecState &state )
         // case Opcode::GREATER_EQUAL:
         case Opcode::EQUAL:
         // case Opcode::UNEQUAL:
-            exec_integer( state, instr );
-            break;
+            return exec_integer( state, instr );
 
         case Opcode::JUMP:
         case Opcode::BRANCH:
         case Opcode::CALL:
         case Opcode::RET:
-            advance = exec_control( state, instr );
-            break;
+            return exec_control( state, instr );
 
         case Opcode::ADDRESS:
         // case Opcode::LOAD: // TODO1
@@ -86,15 +82,12 @@ void Executor::exec( ExecState &state )
         // case Opcode::STACKRESTORE:
         // case Opcode::MALLOC: // TODO2
         // case Opcode::FREE: // TODO2
-            exec_memory( state, instr );
-            break;
+            return exec_memory( state, instr );
+
 
         default:
-            UNREACHABLE();
+            return Stop{ StopKind::Unsupported, UnsupportedReason::Opcode };
     }
-
-    if ( advance )
-        ++frame.instr;
 }
 
 static u64 read_bytes_le( const std::vector< std::uint8_t > &bytes )
@@ -106,91 +99,70 @@ static u64 read_bytes_le( const std::vector< std::uint8_t > &bytes )
     return value;
 }
 
-void Executor::exec_integer( ExecState &state,
-    const sala::Instruction &instr )
+StepOutcome Executor::exec_integer( ExecState &state,
+    const sala::Instruction &instr ) const
 {
-    auto &frame = state.frames.back();
+    const auto &frame = state.frames.back();
 
-    using Opcode = sala::Instruction::Opcode;
-    using Modifier = sala::Instruction::Modifier;
-    using Descriptor = sala::Instruction::Descriptor;
+    const auto &ops = instr.operands();
+    const auto &descriptors = instr.descriptors();
 
     switch ( instr.opcode() )
     {
         case Opcode::COPY:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
+            if ( instr.modifier() != Modifier::NONE )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+            if ( descriptors[ 0 ] != Descriptor::LOCAL
+                    || ( descriptors[ 1 ] != Descriptor::LOCAL
+                        && descriptors[ 1 ] != Descriptor::CONSTANT ) )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
-            const auto &ops = instr.operands();
             Pointer dest = frame.local( ops[ 0 ] );
-            Expr value = instr.descriptors()[ 1 ] == Descriptor::LOCAL
+            Expr value = descriptors[ 1 ] == Descriptor::LOCAL
                 ? state.memory.load( frame.local( ops[ 1 ] ) )
                 : Expr::constant( read_bytes_le( _program.constants()[ ops[ 1 ] ].bytes() ),
                     state.memory.load( dest ).width() );
 
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL
-                || instr.descriptors()[ 1 ] == Descriptor::CONSTANT );
             state.memory.store( dest, std::move( value ) );
-            break;
+            return Advance{};
         }
 
         case Opcode::ADD:
-        {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
-
-            const auto &ops = instr.operands();
-            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
-            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
-            Expr result = Expr::add( lhs, rhs );
-
-            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
-            break;
-        }
-
         case Opcode::SUB:
-        {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
-
-            const auto &ops = instr.operands();
-            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
-            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
-            Expr result = Expr::sub( lhs, rhs );
-
-            state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
-            break;
-        }
-
         case Opcode::MUL:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+            if ( instr.modifier() != Modifier::SIGNED
+                    && instr.modifier() != Modifier::UNSIGNED )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+            if ( descriptors[ 0 ] != Descriptor::LOCAL
+                    || descriptors[ 1 ] != Descriptor::LOCAL
+                    || descriptors[ 2 ] != Descriptor::LOCAL )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
-            const auto &ops = instr.operands();
-            const Expr &lhs = state.memory.load( frame.local( ops[ 2 ] ) );
-            const Expr &rhs = state.memory.load( frame.local( ops[ 1 ] ) );
-            Expr result = Expr::mul( lhs, rhs );
+            const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
+            const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
+            Expr result = instr.opcode() == Opcode::ADD ? Expr::add( lhs, rhs )
+                : instr.opcode() == Opcode::SUB ? Expr::sub( lhs, rhs )
+                : Expr::mul( lhs, rhs );
 
             state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
-            break;
+            return Advance{};
         }
 
         case Opcode::LESS:
         case Opcode::GREATER:
         {
-            INVARIANT( instr.modifier() == Modifier::SIGNED );
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL
-                || instr.descriptors()[ 2 ] == Descriptor::CONSTANT );
+            if ( instr.modifier() != Modifier::SIGNED )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+            if ( descriptors[ 0 ] != Descriptor::LOCAL
+                    || descriptors[ 1 ] != Descriptor::LOCAL
+                    || ( descriptors[ 2 ] != Descriptor::LOCAL
+                        && descriptors[ 2 ] != Descriptor::CONSTANT ) )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
-            const auto &ops = instr.operands();
             const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
-            Expr rhs = instr.descriptors()[ 2 ] == Descriptor::LOCAL
+            Expr rhs = descriptors[ 2 ] == Descriptor::LOCAL
                 ? state.memory.load( frame.local( ops[ 2 ] ) )
                 : Expr::constant(
                     read_bytes_le( _program.constants()[ ops[ 2 ] ].bytes() ), lhs.width() );
@@ -199,30 +171,33 @@ void Executor::exec_integer( ExecState &state,
                 : Expr::sgt( lhs, rhs );
 
             state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
-            break;
+            return Advance{};
         }
 
         case Opcode::EQUAL:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 2 ] == Descriptor::LOCAL );
+            if ( instr.modifier() != Modifier::UNSIGNED )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+            if ( descriptors[ 0 ] != Descriptor::LOCAL
+                    || descriptors[ 1 ] != Descriptor::LOCAL
+                    || descriptors[ 2 ] != Descriptor::LOCAL )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
-            const auto &ops = instr.operands();
             const Expr &lhs = state.memory.load( frame.local( ops[ 1 ] ) );
             const Expr &rhs = state.memory.load( frame.local( ops[ 2 ] ) );
             Expr result = Expr::eq( lhs, rhs );
 
             state.memory.store( frame.local( ops[ 0 ] ), std::move( result ) );
-            break;
+            return Advance{};
         }
 
         case Opcode::EXTEND:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-
-            const auto &ops = instr.operands();
+            if ( instr.modifier() != Modifier::UNSIGNED )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+            if ( descriptors[ 0 ] != Descriptor::LOCAL
+                    || descriptors[ 1 ] != Descriptor::LOCAL )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
             Pointer dest = frame.local( ops[ 0 ] );
             u32 target_width = state.memory.load( dest ).width();
@@ -230,107 +205,82 @@ void Executor::exec_integer( ExecState &state,
             const Expr &src = state.memory.load( frame.local( ops[ 1 ] ) );
             Expr result = Expr::zext( src, target_width );
 
-            state.memory.store( dest, result );
-            break;
+            state.memory.store( dest, std::move( result ) );
+            return Advance{};
         }
 
         default:
-            UNREACHABLE();
+            throw std::logic_error( "unexpected integer opcode" );
     }
 }
 
-bool Executor::exec_control( ExecState &state,
-    const sala::Instruction &instr )
+StepOutcome Executor::exec_control( const ExecState &state,
+    const sala::Instruction &instr ) const
 {
-    using Opcode = sala::Instruction::Opcode;
-    using Descriptor = sala::Instruction::Descriptor;
+    if ( instr.modifier() != Modifier::NONE )
+        return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
 
-    auto &frame = state.frames.back();
-    const auto &funct = _program.functions()[ frame.funct ];
-    const auto &block = funct.basic_blocks()[ frame.block ];
+    const auto &frame = state.frames.back();
+    const auto &funct = _program.functions()[ frame.loc.funct ];
+    const auto &block = funct.basic_blocks()[ frame.loc.block ];
 
     switch ( instr.opcode() )
     {
         case Opcode::JUMP:
-        {
-            INVARIANT( block.successors().size() == 1 );
-            frame.block = block.successors().front();
-            frame.instr = 0;
-            return false;
-        }
+            return Jump{ block.successors().front() };
 
         case Opcode::BRANCH:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( block.successors().size() == 2 );
+            if ( instr.descriptors()[ 0 ] != Descriptor::LOCAL )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
-            const Expr condition = state.memory.load( frame.local( instr.operands()[ 0 ] ) );
-            ExecState &forked = _states.fork( state );
-
-            state.path.add( Expr::logical_not( condition ) );
-            forked.path.add( condition );
-
-            frame.block = block.successors()[ 0 ];
-            frame.instr = 0;
-            forked.frames.back().block = block.successors()[ 1 ];
-            forked.frames.back().instr = 0;
-
-            std::array added = { &forked };
-            _searcher->update( &state, added, {} );
-            return false;
+            const Expr cond = state.memory.load( frame.local( instr.operands()[ 0 ] ) );
+            return Split{ std::array{
+                GuardedContinuation{ cond, block.successors()[ 1 ] },
+                GuardedContinuation{ Expr::logical_not( cond ), block.successors()[ 0 ] },
+            } };
         }
 
         case Opcode::CALL:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::FUNCTION );
-
             const auto &ops = instr.operands();
+            const auto &descriptors = instr.descriptors();
+            if ( descriptors[ 0 ] != Descriptor::FUNCTION )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
+
             u32 target = ops[ 0 ];
-
-            if ( _program.functions()[ target ].is_external() )
-            {
-                exec_external_call( state, instr, target );
-                return true;
-            }
-
-            Frame callee = make_frame( state, target );
             const auto &function = _program.functions()[ target ];
-
-            auto &caller = state.frames.back();
-
-            for ( std::size_t i = 0; i < function.parameters().size(); ++i )
+            if ( function.is_external() )
             {
-                INVARIANT( instr.descriptors()[ i + 1 ] == Descriptor::LOCAL );
+                if ( function.name() != "__VERIFIER_nondet_int" )
+                    return Stop{ StopKind::Unsupported, UnsupportedReason::ExternalModel };
+                if ( ops.size() != 2 )
+                    return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
+            }
+            else if ( ops.size() - 1 != function.parameters().size() )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
-                Expr value = state.memory.load( caller.local( ops[ i + 1 ] ) );
-                state.memory.store( callee.param( u32( i ) ), value );
+            for ( std::size_t i = 1; i < descriptors.size(); ++i )
+            {
+                if ( descriptors[ i ] != Descriptor::LOCAL
+                        && descriptors[ i ] != Descriptor::PARAMETER )
+                    return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
             }
 
-            ++caller.instr;
-            state.frames.push_back( std::move( callee ) );
-            return false;
+            return Call{ target, capture_call_args( state, instr ) };
         }
 
         case Opcode::RET:
-        {
-            state.frames.pop_back();
-
-            if ( state.frames.empty() )
-                terminate( state );
-
-            return false;
-        }
+            return Return{};
 
         default:
-            UNREACHABLE();
+            throw std::logic_error( "unexpected control opcode" );
     }
 }
 
 void Executor::exec_external_call( ExecState &state,
     const sala::Instruction &instr, u32 target )
 {
-    using Descriptor = sala::Instruction::Descriptor;
-
     const auto &function = _program.functions()[ target ];
 
     if ( function.name() == "__VERIFIER_nondet_int" )
@@ -352,47 +302,48 @@ void Executor::exec_external_call( ExecState &state,
     UNREACHABLE();
 }
 
-void Executor::exec_memory( ExecState &state,
-    const sala::Instruction &instr )
+StepOutcome Executor::exec_memory( ExecState &state,
+    const sala::Instruction &instr ) const
 {
-    auto &frame = state.frames.back();
+    const auto &frame = state.frames.back();
 
-    using Opcode = sala::Instruction::Opcode;
-    using Descriptor = sala::Instruction::Descriptor;
+    if ( instr.modifier() != Modifier::NONE )
+        return Stop{ StopKind::Unsupported, UnsupportedReason::Modifier };
+
+    const auto &ops = instr.operands();
+    const auto &descriptors = instr.descriptors();
 
     switch ( instr.opcode() )
     {
         case Opcode::ADDRESS:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::LOCAL );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-
-            const auto &ops = instr.operands();
+            if ( descriptors[ 0 ] != Descriptor::LOCAL
+                    || descriptors[ 1 ] != Descriptor::LOCAL )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
             Pointer target = frame.local( ops[ 1 ] );
             Expr address = Expr::address( target.obj, target.offset );
 
-            state.memory.store( frame.local( ops[ 0 ] ), address );
-            break;
+            state.memory.store( frame.local( ops[ 0 ] ), std::move( address ) );
+            return Advance{};
         }
 
         case Opcode::STORE:
         {
-            INVARIANT( instr.descriptors()[ 0 ] == Descriptor::PARAMETER );
-            INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-
-            const auto &ops = instr.operands();
+            if ( descriptors[ 0 ] != Descriptor::PARAMETER
+                    || descriptors[ 1 ] != Descriptor::LOCAL )
+                return Stop{ StopKind::Unsupported, UnsupportedReason::Operand };
 
             const Expr &ptr_value = state.memory.load( frame.param( ops[ 0 ] ) );
             const Expr &value = state.memory.load( frame.local( ops[ 1 ] ) );
 
             // TODO: ptr_value can be symbolic, fork/ite expr
             state.memory.store( ptr_value.as_pointer(), value );
-            break;
+            return Advance{};
         }
 
         default:
-            UNREACHABLE();
+            throw std::logic_error( "unexpected memory opcode" );
     }
 }
 
@@ -409,9 +360,7 @@ Frame Executor::make_frame( ExecState &state, u32 func_index )
     const auto &function = _program.functions()[ func_index ];
 
     Frame frame;
-    frame.funct = func_index;
-    frame.block = 0;
-    frame.instr = 0;
+    frame.loc = { func_index, 0, 0 };
 
     for ( const auto &param : function.parameters() )
         frame.push_param( alloc( state, u32( param.num_bytes() * 8 ) ) );
@@ -444,6 +393,55 @@ void Executor::terminate( ExecState &state )
 
     std::array removed = { &state };
     _searcher->update( nullptr, {}, removed );
+}
+
+
+void Executor::finish_path( ExecState &state, Stop stop )
+{
+    ExecutionRecord record{ stop, state.frames.back().loc, {} };
+
+    for ( const Frame &frame : state.frames )
+    {
+        if ( frame.call_site )
+            record.call_stack.push_back( *frame.call_site );
+    }
+
+    record.call_stack.push_back( record.location );
+
+    _records.push_back( std::move( record ) );
+    terminate( state );
+}
+
+
+std::vector< Expr > Executor::capture_call_args(
+    const ExecState &state, const sala::Instruction &instr )
+{
+    const auto &caller = state.frames.back();
+    const auto &operands = instr.operands();
+    const auto &descriptors = instr.descriptors();
+
+    std::vector< Expr > args;
+    args.reserve( operands.size() - 1 );
+
+    for ( std::size_t i = 1; i < operands.size(); ++i )
+    {
+        Pointer ptr = [ &, i ]()
+        {
+            switch ( descriptors[ i ] )
+            {
+                case Descriptor::LOCAL:
+                    return caller.local( operands[ i ] );
+                case Descriptor::PARAMETER:
+                    return caller.param( operands[ i ] );
+                default:
+                    throw std::logic_error( "unsupported call source passed to capture_call_args" );
+            }
+        }();
+
+        args.push_back( state.memory.load( ptr ) );
+    }
+
+    return args;
 }
 
 } // namespace sala::sym
