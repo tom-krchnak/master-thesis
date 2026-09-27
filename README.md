@@ -2,39 +2,24 @@
 
 Symbolic executor for SALA
 
-## How to use
-
-I use `CMakeLists.txt` with `CMakePresets.json` to build the project and all the dependencies.
-
-But the commands are ugly so I have a simple `Makefile` wrapper:
 ```shell
-# (optional) if you have newer llvm (>=22) and boost (>1.87)
+# optional compatibility patch for Boost >1.87
 make patch
 
-# configure cmake, install salac locally
-make init
+# configure, build, and install the compiler locally
+# - run only once
+make salac
 
-# build salasym (default: release)
-make salasym
-# make salasym PRESET=debug
+# configure and build salasym (default: release)
+# - run after every change
+make
+# make PRESET=debug
 
-# run salasym with given source file
-make verify FILE=data/simple.c
-```
+# compile C and run salasym
+make verify FILE=path/to/program.c
+# or run an already compiled SALA program
+./impl/build/release/salasym/salasym path/to/program.json
 
-Instead of using cmake, it's possible to run the commands directly:
-
-```shell
-# (optional) install salac locally
-cmake --preset release
-cmake --build --preset release --target salac
-cmake --install build/release/binsalac
-
-# build salasym ('release' can be changed to 'debug')
-cmake --preset release
-cmake --build --preset release --target salasym
-
-# compile the file and run salasym
-./build/release/install/bin/salac.py --input FILE --output OUT --opt 2
-./build/release/salasym/salasym OUT/FILE.json
+# remove all build artifacts for fresh start
+make clean
 ```

@@ -9,14 +9,18 @@
     {
       "name": "base",
       "hidden": true,
-      "generator": "Ninja"
+      "generator": "Ninja",
+      "cacheVariables": {
+        "BINSALAC_INSTALL": "ON"
+      }
     },
     {
       "name": "release",
       "inherits": "base",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/release/install"
       }
     },
     {
@@ -24,7 +28,8 @@
       "inherits": "base",
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/debug/install"
       }
     }
   ],
