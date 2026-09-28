@@ -13,13 +13,11 @@ struct ISearcher
 {
     virtual ~ISearcher() = default;
 
-    virtual ExecState &select() = 0;
+    virtual ExecState &take() = 0;
 
     virtual bool empty() const = 0;
 
-    virtual void update( ExecState *curr,
-            const std::span< ExecState * > &added,
-            const std::span< ExecState * > &removed ) = 0;
+    virtual void publish( std::span< ExecState * const > ordered ) = 0;
 };
 
 ptr< ISearcher > make_searcher( const SearchConfig &config );

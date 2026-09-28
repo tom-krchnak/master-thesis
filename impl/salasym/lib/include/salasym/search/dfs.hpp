@@ -4,7 +4,6 @@
 
 #include "utility/invariants.hpp"
 
-#include <algorithm>
 #include <vector>
 
 namespace sala::sym
@@ -12,10 +11,13 @@ namespace sala::sym
 
 struct DFS_Searcher : public ISearcher
 {
-    ExecState &select() override
+    ExecState &take() override
     {
         INVARIANT( !empty() );
-        return *_states.back();
+
+        ExecState *state = _states.back();
+        _states.pop_back();
+        return *state;
     }
 
     bool empty() const override
@@ -23,18 +25,9 @@ struct DFS_Searcher : public ISearcher
         return _states.empty();
     }
 
-    void update( ExecState *curr,
-            const std::span< ExecState * > &added,
-            const std::span< ExecState * > &removed ) override
+    void publish( std::span< ExecState * const > ordered ) override
     {
-        for ( ExecState *state : removed )
-        {
-            auto it = std::find( _states.begin(), _states.end(), state );
-            INVARIANT( it != _states.end() );
-            _states.erase( it );
-        }
-
-        _states.insert( _states.end(), added.begin(), added.end() );
+        _states.insert( _states.end(), ordered.rbegin(), ordered.rend() );
     }
 
 private:

@@ -19,11 +19,9 @@ void Executor::run()
 
     init();
 
-    while ( !_states.empty() )
+    while ( !_searcher->empty() )
     {
-        ExecState &curr = _searcher->select();
-        std::array removed = { &curr };
-        _searcher->update( nullptr, {}, removed );
+        ExecState &curr = _searcher->take();
 
         apply_outcome( curr, _stepper.step( curr ) );
     }
@@ -102,18 +100,18 @@ void Executor::apply( ExecState &state, Call &&call )
 
 void Executor::apply( ExecState &state, Split &&split )
 {
-    std::array successors = { &_states.fork( state ), &state };
+    std::array successors = { &state, &_states.fork( state ) };
     for ( std::size_t i = 0; i < successors.size(); ++i )
     {
         auto &successor = *successors[ i ];
-        auto &continuation = split.alts[ split.alts.size() - 1 - i ];
+        auto &continuation = split.alts[ i ];
         successor.path.add( std::move( continuation.cond ) );
         auto &location = successor.frames.back().loc;
         location.block = continuation.block;
         location.instr = 0;
     }
 
-    _searcher->update( nullptr, successors, {} );
+    _searcher->publish( successors );
 }
 
 void Executor::apply( ExecState &state, Stop stop )
@@ -123,8 +121,8 @@ void Executor::apply( ExecState &state, Stop stop )
 
 void Executor::publish_one( ExecState &state )
 {
-    std::array added = { &state };
-    _searcher->update( nullptr, added, {} );
+    std::array ordered = { &state };
+    _searcher->publish( ordered );
 }
 
 
