@@ -1,5 +1,7 @@
 #pragma once
 
+#include "sala/program.hpp"
+
 #include <cstdint>
 #include <memory>
 

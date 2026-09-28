@@ -1,6 +1,7 @@
 #include "salasym/exec.hpp"
 
 #include <stdexcept>
+#include <utility>
 
 
 namespace sala::sym
@@ -8,17 +9,105 @@ namespace sala::sym
 
 void Executor::run()
 {
+    _run_completed = false;
     _states.reset();
+    _records.clear();
     _searcher = make_searcher( _config.search );
 
-    ObjId result = init();
+    init();
 
     while ( !_states.empty() )
     {
         ExecState &curr = _searcher->select();
+        std::array removed = { &curr };
+        _searcher->update( nullptr, {}, removed );
 
-        step( curr );
+        apply_outcome( curr, step( curr ) );
     }
+
+    _run_completed = true;
+}
+
+void Executor::apply_outcome( ExecState &state, StepOutcome outcome )
+{
+    std::visit( [&]( auto &&effect ) {
+        apply( state, std::move( effect ) );
+    }, std::move( outcome ) );
+}
+
+void Executor::apply( ExecState &state, Advance )
+{
+    ++state.frames.back().loc.instr;
+    publish_one( state );
+}
+
+void Executor::apply( ExecState &state, Return )
+{
+    if ( state.frames.size() == 1 )
+    {
+        finish_path( state, Stop{ StopKind::Return } );
+        return;
+    }
+
+    state.frames.pop_back();
+    publish_one( state );
+}
+
+void Executor::apply( ExecState &state, Jump jump )
+{
+    auto &location = state.frames.back().loc;
+    location.block = jump.block;
+    location.instr = 0;
+    publish_one( state );
+}
+
+void Executor::apply( ExecState &state, Call &&call )
+{
+    const auto &function = _program.functions()[ call.callee ];
+    if ( function.is_external() )
+    {
+        exec_external_call( state, call );
+        apply( state, Advance{} );
+        return;
+    }
+
+    const ProgramLocation site = state.frames.back().loc;
+    Frame callee = make_frame( state, call.callee );
+    callee.call_site = site;
+
+    for ( std::size_t i = 0; i < call.args.size(); ++i )
+        state.memory.store( callee.param( i ), std::move( call.args[ i ] ) );
+
+    ++state.frames.back().loc.instr;
+    state.frames.push_back( std::move( callee ) );
+    publish_one( state );
+}
+
+void Executor::apply( ExecState &state, Split &&split )
+{
+    std::array successors = { &_states.fork( state ), &state };
+    for ( std::size_t i = 0; i < successors.size(); ++i )
+    {
+        auto &successor = *successors[ i ];
+        auto &continuation = split.alts[ split.alts.size() - 1 - i ];
+        successor.path.add( std::move( continuation.cond ) );
+        auto &location = successor.frames.back().loc;
+        location.block = continuation.block;
+        location.instr = 0;
+    }
+
+    _searcher->update( nullptr, successors, {} );
+}
+
+void Executor::apply( ExecState &state, Stop stop )
+{
+    finish_path( state, stop );
+}
+
+void Executor::publish_one( ExecState &state )
+{
+    std::array added = { &state };
+    _searcher->update( nullptr, added, {} );
 }
 
 StepOutcome Executor::step( ExecState &state ) const
@@ -278,28 +367,16 @@ StepOutcome Executor::exec_control( const ExecState &state,
     }
 }
 
-void Executor::exec_external_call( ExecState &state,
-    const sala::Instruction &instr, u32 target )
+void Executor::exec_external_call( ExecState &state, const Call &call )
 {
-    const auto &function = _program.functions()[ target ];
+    const auto &function = _program.functions()[ call.callee ];
+    if ( function.name() != "__VERIFIER_nondet_int" || call.args.size() != 1 )
+        throw std::logic_error( "unsupported call passed to external model" );
 
-    if ( function.name() == "__VERIFIER_nondet_int" )
-    {
-        auto &frame = state.frames.back();
-
-        INVARIANT( instr.descriptors()[ 1 ] == Descriptor::LOCAL );
-
-        const Expr &p0 = state.memory.load( frame.local( instr.operands()[ 1 ] ) );
-        Pointer dest = p0.as_pointer();
-
-        u32 width = state.memory.load( dest ).width();
-        Expr sym = Expr::symbol( "sym" + std::to_string( _next_symbol_id++ ), width );
-
-        state.memory.store( dest, sym );
-        return;
-    }
-
-    UNREACHABLE();
+    Pointer dest = call.args.front().as_pointer();
+    u32 width = state.memory.load( dest ).width();
+    Expr sym = Expr::symbol( "sym" + std::to_string( _next_symbol_id++ ), width );
+    state.memory.store( dest, std::move( sym ) );
 }
 
 StepOutcome Executor::exec_memory( ExecState &state,
@@ -371,7 +448,7 @@ Frame Executor::make_frame( ExecState &state, u32 func_index )
     return frame;
 }
 
-ObjId Executor::init()
+void Executor::init()
 {
     ExecState &initial = _states.create();
     initial.frames.push_back( make_frame( initial, _program.entry_function() ) );
@@ -381,19 +458,9 @@ ObjId Executor::init()
     initial.memory.store( initial.frames.back().param( 0 ),
         Expr::address( result, 0 ) );
 
-    std::array added = { &initial };
-    _searcher->update( nullptr, added, {} );
-
-    return result;
+    publish_one( initial );
 }
 
-void Executor::terminate( ExecState &state )
-{
-    _states.complete( &state );
-
-    std::array removed = { &state };
-    _searcher->update( nullptr, {}, removed );
-}
 
 
 void Executor::finish_path( ExecState &state, Stop stop )
@@ -409,7 +476,7 @@ void Executor::finish_path( ExecState &state, Stop stop )
     record.call_stack.push_back( record.location );
 
     _records.push_back( std::move( record ) );
-    terminate( state );
+    _states.complete( &state );
 }
 
 

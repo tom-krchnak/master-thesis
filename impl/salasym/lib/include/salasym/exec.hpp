@@ -106,15 +106,23 @@ private:
     StepOutcome exec_control( const ExecState &state, const sala::Instruction &instr ) const;
     StepOutcome exec_memory( ExecState &state, const sala::Instruction &instr ) const;
 
-    void exec_external_call( ExecState &state, const sala::Instruction &instr, u32 target );
+    void exec_external_call( ExecState &state, const Call &call );
 
     Frame make_frame( ExecState &state, u32 func_index );
 
-    void terminate( ExecState &state );
     void finish_path( ExecState &state, Stop stop );
 
     StepOutcome step( ExecState &state ) const;
-    ObjId init();
+    void apply_outcome( ExecState &state, StepOutcome outcome );
+    void apply( ExecState &state, Advance );
+    void apply( ExecState &state, Return );
+    void apply( ExecState &state, Jump jump );
+    void apply( ExecState &state, Call &&call );
+    void apply( ExecState &state, Split &&split );
+    void apply( ExecState &state, Stop stop );
+
+    void publish_one( ExecState &state );
+    void init();
 
     ObjId alloc( ExecState &state, u32 width );
 
