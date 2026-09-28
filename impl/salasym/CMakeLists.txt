@@ -9,16 +9,19 @@ target_sources(salasym-lib
         ${INC_DIR}/exec.hpp
         ${INC_DIR}/expr.hpp
         ${INC_DIR}/memory.hpp
+        ${INC_DIR}/outcome.hpp
         ${INC_DIR}/path_cond.hpp
         ${INC_DIR}/search.hpp
         ${INC_DIR}/search/dfs.hpp
         ${INC_DIR}/state_store.hpp
         ${INC_DIR}/state.hpp
+        ${INC_DIR}/stepper.hpp
         ${INC_DIR}/types.hpp
     PRIVATE
         ${SRC_DIR}/exec.cpp
         ${SRC_DIR}/expr.cpp
         ${SRC_DIR}/search.cpp
+        ${SRC_DIR}/stepper.cpp
 
 )
 
