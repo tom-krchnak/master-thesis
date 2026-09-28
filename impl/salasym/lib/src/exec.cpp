@@ -177,7 +177,7 @@ void Executor::finish_path( ExecState &state, Stop stop )
     record.call_stack.push_back( record.location );
 
     _records.push_back( std::move( record ) );
-    _states.complete( &state );
+    _states.erase( state );
 }
 
 } // namespace sala::sym

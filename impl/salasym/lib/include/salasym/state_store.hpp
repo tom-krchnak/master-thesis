@@ -2,8 +2,9 @@
 
 #include "salasym/state.hpp"
 
-#include <set>
-#include <span>
+#include <cstddef>
+#include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace sala::sym
@@ -13,60 +14,51 @@ struct StateStore
 {
     ExecState &create()
     {
-        return add( ExecState{ next_id() } );
+        return adopt( make_ptr< ExecState >( next_id() ) );
     }
 
     ExecState &fork( const ExecState &source )
     {
-        ExecState copy = source;
-        copy.id = next_id();
-
-        return add( std::move( copy ) );
+        auto copy = make_ptr< ExecState >( source );
+        copy->_id = next_id();
+        return adopt( std::move( copy ) );
     }
 
-    void complete( ExecState *state )
+    void erase( ExecState &state )
     {
-        const auto erased = _active.erase( state );
-        INVARIANT( erased == 1 );
+        const std::size_t slot = state._store_slot;
+        INVARIANT( slot < _owned.size() );
+        INVARIANT( _owned[ slot ].get() == &state );
 
-        _completed.push_back( state );
+        const std::size_t last = _owned.size() - 1;
+        if ( slot != last )
+        {
+            std::swap( _owned[ slot ], _owned[ last ] );
+            _owned[ slot ]->_store_slot = slot;
+        }
+
+        _owned.pop_back();
     }
 
-    bool contains( ExecState *state ) const
-    {
-        return _active.contains( state );
-    }
-
-    void reset()
+    void reset() noexcept
     {
         _owned.clear();
-        _active.clear();
-        _completed.clear();
-
         _next_state_id = 0;
-    }
-
-    std::span< ExecState * const > completed() const
-    {
-        return _completed;
     }
 
     bool empty() const
     {
-        return _active.empty();
+        return _owned.empty();
     }
 
 private:
 
-    ExecState &add( ExecState state )
+    ExecState &adopt( ptr< ExecState > state )
     {
-        _owned.emplace_back( make_ptr< ExecState >( std::move( state ) ) );
-        auto *result = _owned.back().get();
-
-        auto [ _, inserted ] = _active.insert( result );
-        INVARIANT( inserted );
-
-        return *result;
+        state->_store_slot = _owned.size();
+        ExecState &result = *state;
+        _owned.push_back( std::move( state ) );
+        return result;
     }
 
 
@@ -76,8 +68,6 @@ private:
     }
 
     std::vector< ptr< ExecState > > _owned;
-    std::set< ExecState *, ExecStateIDCmp > _active;
-    std::vector< ExecState * > _completed;
 
     u32 _next_state_id = 0;
 };

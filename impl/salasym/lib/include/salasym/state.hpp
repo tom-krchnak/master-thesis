@@ -4,6 +4,7 @@
 #include "salasym/path_cond.hpp"
 #include "salasym/types.hpp"
 
+#include <cstddef>
 #include <optional>
 
 namespace sala::sym
@@ -53,23 +54,20 @@ private:
 struct ExecState
 {
     explicit ExecState( StateId id )
-        : id( id )
+        : _id( id )
     {}
 
-    StateId id;
+    StateId id() const { return _id; }
 
     std::vector< Frame > frames;
     Memory memory;
     PathCondition path;
-};
 
+private:
 
-struct ExecStateIDCmp
-{
-    bool operator()( const ExecState *lhs, const ExecState *rhs ) const
-    {
-        return lhs->id < rhs->id;
-    }
+    StateId _id;
+    std::size_t _store_slot = 0;
+    friend struct StateStore;
 };
 
 } // namespace sala::sym
