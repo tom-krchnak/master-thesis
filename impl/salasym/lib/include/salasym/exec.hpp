@@ -67,6 +67,10 @@ private:
     void apply( ExecState &state, Split &&split );
     void apply( ExecState &state, Stop stop );
 
+    void complete_split( ExecState &original,
+        std::span< GuardedContinuation > alternatives,
+        std::span< ExecState * > successors );
+
     void publish_one( ExecState &state );
     void init();
 

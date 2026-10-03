@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
@@ -98,18 +99,37 @@ void Executor::apply( ExecState &state, Call &&call )
     publish_one( state );
 }
 
+static void apply_continuation(
+    ExecState &state, GuardedContinuation &&continuation )
+{
+    state.path.add( std::move( continuation.cond ) );
+    auto &location = state.frames.back().loc;
+    location.block = continuation.block;
+    location.instr = 0;
+}
+
+void Executor::complete_split( ExecState &original,
+    std::span< GuardedContinuation > alternatives,
+    std::span< ExecState * > successors )
+{
+    if ( alternatives.empty() || alternatives.size() != successors.size() )
+        throw std::logic_error( "invalid continuing split batch" );
+
+    for ( std::size_t i = 1; i < alternatives.size(); ++i )
+    {
+        ExecState &clone = _states.fork( original );
+        apply_continuation( clone, std::move( alternatives[ i ] ) );
+        successors[ i ] = &clone;
+    }
+
+    apply_continuation( original, std::move( alternatives[ 0 ] ) );
+    successors[ 0 ] = &original;
+}
+
 void Executor::apply( ExecState &state, Split &&split )
 {
-    std::array successors = { &state, &_states.fork( state ) };
-    for ( std::size_t i = 0; i < successors.size(); ++i )
-    {
-        auto &successor = *successors[ i ];
-        auto &continuation = split.alts[ i ];
-        successor.path.add( std::move( continuation.cond ) );
-        auto &location = successor.frames.back().loc;
-        location.block = continuation.block;
-        location.instr = 0;
-    }
+    std::array< ExecState *, 2 > successors{};
+    complete_split( state, split.alts, successors );
 
     _searcher->publish( successors );
 }
