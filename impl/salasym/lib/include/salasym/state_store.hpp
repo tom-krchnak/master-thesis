@@ -1,9 +1,9 @@
 #pragma once
 
 #include "salasym/state.hpp"
+#include "utility/invariants.hpp"
 
 #include <cstddef>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 

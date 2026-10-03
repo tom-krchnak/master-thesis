@@ -8,6 +8,7 @@
 #include "salasym/state_store.hpp"
 #include "salasym/stepper.hpp"
 #include "salasym/types.hpp"
+#include "utility/invariants.hpp"
 
 #include <span>
 #include <vector>
@@ -32,6 +33,8 @@ struct Executor
         , _stepper( program )
     {}
 
+    ~Executor();
+
     void run();
 
     std::span< const ExecutionRecord > records() const
@@ -46,8 +49,8 @@ private:
     const ExecConfig &_config;
     InstructionStepper _stepper;
 
-    ptr< ISearcher > _searcher;
     StateStore _states;
+    ptr< ISearcher > _searcher;
 
     u32 _next_obj_id = 0;
     u32 _next_symbol_id = 0;
@@ -72,6 +75,7 @@ private:
         std::span< ExecState * > successors );
 
     void publish_one( ExecState &state );
+    void clear_execution() noexcept;
     void init();
 
     ObjId alloc( ExecState &state, u32 width );

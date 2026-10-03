@@ -1,8 +1,8 @@
 #include "salasym/exec.hpp"
+#include "utility/invariants.hpp"
 
 #include <array>
 #include <cstddef>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
@@ -11,23 +11,43 @@
 namespace sala::sym
 {
 
+Executor::~Executor()
+{
+    clear_execution();
+}
+
+void Executor::clear_execution() noexcept
+{
+    _searcher.reset();
+    _states.reset();
+}
+
 void Executor::run()
 {
     _run_completed = false;
-    _states.reset();
+    clear_execution();
     _records.clear();
-    _searcher = make_searcher( _config.search );
 
-    init();
-
-    while ( !_searcher->empty() )
+    try
     {
-        ExecState &curr = _searcher->take();
+        _searcher = make_searcher( _config.search );
+        init();
 
-        apply_outcome( curr, _stepper.step( curr ) );
+        while ( !_searcher->empty() )
+        {
+            ExecState &state = _searcher->take();
+            StepOutcome outcome = _stepper.step( state );
+            apply_outcome( state, std::move( outcome ) );
+        }
+
+        INVARIANT( _states.empty() );
+        _run_completed = true;
     }
-
-    _run_completed = true;
+    catch ( ... )
+    {
+        clear_execution();
+        throw;
+    }
 }
 
 void Executor::apply_outcome( ExecState &state, StepOutcome outcome )
@@ -112,8 +132,8 @@ void Executor::complete_split( ExecState &original,
     std::span< GuardedContinuation > alternatives,
     std::span< ExecState * > successors )
 {
-    if ( alternatives.empty() || alternatives.size() != successors.size() )
-        throw std::logic_error( "invalid continuing split batch" );
+    INVARIANT( !alternatives.empty() );
+    INVARIANT( alternatives.size() == successors.size() );
 
     for ( std::size_t i = 1; i < alternatives.size(); ++i )
     {
