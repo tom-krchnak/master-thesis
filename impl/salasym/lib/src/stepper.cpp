@@ -1,7 +1,7 @@
 #include "salasym/stepper.hpp"
+#include "utility/invariants.hpp"
 
 #include <cstddef>
-#include <stdexcept>
 #include <utility>
 
 namespace sala::sym
@@ -196,7 +196,7 @@ StepOutcome InstructionStepper::exec_integer( ExecState &state,
         }
 
         default:
-            throw std::logic_error( "unexpected integer opcode" );
+            UNREACHABLE();
     }
 }
 
@@ -254,7 +254,7 @@ StepOutcome InstructionStepper::exec_control( const ExecState &state,
             return Return{};
 
         default:
-            throw std::logic_error( "unexpected control opcode" );
+            UNREACHABLE();
     }
 }
 
@@ -299,7 +299,7 @@ StepOutcome InstructionStepper::exec_memory( ExecState &state,
         }
 
         default:
-            throw std::logic_error( "unexpected memory opcode" );
+            UNREACHABLE();
     }
 }
 
@@ -324,7 +324,7 @@ std::vector< Expr > InstructionStepper::capture_call_args(
                 case Descriptor::PARAMETER:
                     return caller.param( operands[ i ] );
                 default:
-                    throw std::logic_error( "unsupported call source passed to capture_call_args" );
+                    UNREACHABLE();
             }
         }();
 
