@@ -11,6 +11,7 @@
 #include "utility/invariants.hpp"
 
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 
@@ -40,6 +41,9 @@ struct Executor
     std::span< const ExecutionRecord > records() const
     {
         INVARIANT( _run_completed );
+        if ( !_run_completed )
+            throw std::runtime_error( "no successfully completed execution run" );
+
         return _records;
     }
 

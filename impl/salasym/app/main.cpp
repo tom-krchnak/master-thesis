@@ -87,6 +87,7 @@ static void salasym( const options &opts )
         std::cout << '\n';
     }
 
+    std::cout.flush();
     if ( !std::cout )
         throw std::runtime_error( "failed to write execution outcomes" );
 }
