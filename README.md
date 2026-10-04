@@ -65,7 +65,7 @@ make clean
 - [ ] **Define benchmark eligibility**
   - Draft the SV-COMP and Test-Comp manifest schema and predeclare LP64 inclusion criteria.
 
-- [ ] **Create the thesis skeleton**
+- [x] **Create the thesis skeleton**
   - Create chapters for introduction, background, SALA/executor design, implementation, methodology, results, threats to validity, and conclusion.
 
 - [ ] **Start the literature record**
