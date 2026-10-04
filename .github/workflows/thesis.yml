@@ -1,4 +1,4 @@
-name: Build and publish thesis
+name: Build thesis PDF
 
 on:
   push:
@@ -12,12 +12,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: thesis-pages
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -36,34 +30,9 @@ jobs:
       - name: Build thesis
         run: make thesis
 
-      - name: Configure GitHub Pages
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/configure-pages@v5
-
-      - name: Stage GitHub Pages artifact
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: |
-          mkdir -p _site
-          cp text/salasym/build/salasym.pdf _site/salasym.pdf
-          touch _site/.nojekyll
-
-      - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload thesis PDF artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: _site
-
-  deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: build
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy thesis PDF
-        id: deployment
-        uses: actions/deploy-pages@v5
+          name: thesis-pdf
+          path: text/salasym/build/salasym.pdf
+          if-no-files-found: error
