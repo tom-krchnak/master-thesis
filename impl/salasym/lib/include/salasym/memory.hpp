@@ -31,7 +31,7 @@ struct Memory
     void create( ObjId id, u32 width )
     {
         INVARIANT( !_objects.contains( id ) );
-        _objects[ id ] = MemObj{ { Expr::constant( 0, width ) } };
+        _objects[ id ] = MemObj{ { Expr::uconst( 0, width ) } };
     }
 
 private:

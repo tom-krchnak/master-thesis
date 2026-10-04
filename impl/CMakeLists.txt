@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(salasym LANGUAGES CXX)
+project(salasym LANGUAGES C CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -12,8 +12,16 @@ if(POLICY CMP0167)
 endif()
 
 find_package(Boost REQUIRED COMPONENTS json)
+find_package(LLVM REQUIRED CONFIG)
 
 set(BOOST_LIST_OF_LIBRARIES_TO_LINK_WITH Boost::json)
+if(TARGET LLVM)
+    set(SALASYM_LLVM_LIBRARIES LLVM)
+else()
+    llvm_map_components_to_libnames(SALASYM_LLVM_LIBRARIES Support)
+endif()
+
+add_definitions(${LLVM_DEFINITIONS})
 include_directories(
     "${CMAKE_CURRENT_SOURCE_DIR}/libutility/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/libsala/include"

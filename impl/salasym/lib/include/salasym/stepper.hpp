@@ -30,8 +30,6 @@ private:
     StepOutcome exec_control( const ExecState &state, const sala::Instruction &instr ) const;
     StepOutcome exec_memory( ExecState &state, const sala::Instruction &instr ) const;
 
-    u64 read_bytes_le( const std::vector< u8 > &bytes ) const;
-
     static std::vector< Expr > capture_call_args(
         const ExecState &state, const sala::Instruction &instr );
 };

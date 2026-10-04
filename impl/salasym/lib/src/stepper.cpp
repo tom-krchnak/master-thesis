@@ -76,16 +76,6 @@ StepOutcome InstructionStepper::step( ExecState &state ) const
     }
 }
 
-u64 InstructionStepper::read_bytes_le( const std::vector< u8 > &bytes ) const
-{
-    INVARIANT( _target.byte_order() == ByteOrder::LittleEndian );
-
-    u64 value = 0;
-    for ( std::size_t i = 0; i < bytes.size(); ++i )
-        value |= u64( bytes[ i ] ) << ( 8 * i );
-
-    return value;
-}
 
 StepOutcome InstructionStepper::exec_integer( ExecState &state,
     const sala::Instruction &instr ) const
@@ -110,8 +100,8 @@ StepOutcome InstructionStepper::exec_integer( ExecState &state,
             Expr value = descriptors[ 1 ] == Descriptor::LOCAL
                 ? state.memory.load( frame.local( ops[ 1 ] ) )
                 : Expr::constant(
-                    read_bytes_le( _program.constants()[ ops[ 1 ] ].bytes() ),
-                    state.memory.load( dest ).width() );
+                    _program.constants()[ ops[ 1 ] ].bytes(),
+                    state.memory.load( dest ).width(), _target.byte_order() );
 
             state.memory.store( dest, std::move( value ) );
             return Advance{};
@@ -154,8 +144,8 @@ StepOutcome InstructionStepper::exec_integer( ExecState &state,
             Expr rhs = descriptors[ 2 ] == Descriptor::LOCAL
                 ? state.memory.load( frame.local( ops[ 2 ] ) )
                 : Expr::constant(
-                    read_bytes_le( _program.constants()[ ops[ 2 ] ].bytes() ),
-                    lhs.width() );
+                    _program.constants()[ ops[ 2 ] ].bytes(),
+                    lhs.width(), _target.byte_order() );
             Expr result = instr.opcode() == Opcode::LESS
                 ? Expr::slt( lhs, rhs )
                 : Expr::sgt( lhs, rhs );
