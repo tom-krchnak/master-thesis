@@ -2,7 +2,7 @@
 	path = impl/libutility
 	url = https://github.com/staticafi/libutility
 	branch = main
-[submodule "impl/binsalac"]
+[submodule "tools/binsalac"]
 	path = tools/binsalac
 	url = https://github.com/staticafi/binsalac
 	branch = main
@@ -10,7 +10,7 @@
 	path = impl/libsala
 	url = https://github.com/staticafi/libsala
 	branch = main
-[submodule "impl/libllvmutl"]
+[submodule "tools/libllvmutl"]
 	path = tools/libllvmutl
 	url = https://github.com/staticafi/libllvmutl
 	branch = main
