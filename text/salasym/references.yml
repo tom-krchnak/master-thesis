@@ -1,0 +1,81 @@
+cadar2008klee:
+  type: Article
+  author:
+    - Cadar, Cristian
+    - Dunbar, Daniel
+    - Engler, Dawson
+  title: "KLEE: Unassisted and Automatic Generation of High-Coverage Tests for Complex Systems Programs"
+  date: 2008
+  page-range: 209-224
+  parent:
+    type: Proceedings
+    title: "Proceedings of the 8th USENIX Symposium on Operating Systems Design and Implementation"
+    location: "San Diego, California, USA"
+  url: https://www.usenix.org/legacy/events/osdi08/tech/full_papers/cadar/cadar.pdf
+
+kuznetsov2012merging:
+  type: Article
+  author:
+    - Kuznetsov, Volodymyr
+    - Kinder, Johannes
+    - Bucur, Stefan
+    - Candea, George
+  title: "Efficient State Merging in Symbolic Execution"
+  date: 2012
+  page-range: 193-204
+  parent:
+    type: Proceedings
+    title: "Proceedings of the 33rd ACM SIGPLAN Conference on Programming Language Design and Implementation"
+  serial-number:
+    doi: 10.1145/2254064.2254088
+
+king1976symbolic:
+  type: Article
+  author: King, James C.
+  title: "Symbolic Execution and Program Testing"
+  date: 1976
+  parent:
+    type: Periodical
+    title: Communications of the ACM
+  serial-number:
+    doi: 10.1145/360248.360252
+
+libsala:
+  type: Web
+  author: staticafi
+  title: "libsala"
+  url:
+    value: https://github.com/staticafi/libsala
+    date: 2026-10-04
+
+binsalac:
+  type: Web
+  author: staticafi
+  title: "binsalac"
+  url:
+    value: https://github.com/staticafi/binsalac
+    date: 2026-10-04
+
+binsalat:
+  type: Web
+  author: staticafi
+  title: "binsalat"
+  url:
+    value: https://github.com/staticafi/binsalat
+    date: 2026-10-04
+
+datsalat:
+  type: Web
+  author: staticafi
+  title: "datsalat"
+  url:
+    value: https://github.com/staticafi/datsalat
+    date: 2026-10-04
+
+jetklee:
+  type: Web
+  author: staticafi
+  title: "JetKleeProgressExplorer"
+  url:
+    value: https://github.com/staticafi/JetKleeProgressExplorer
+    date: 2026-10-04

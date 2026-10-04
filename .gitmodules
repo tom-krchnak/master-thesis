@@ -14,3 +14,6 @@
 	path = tools/libllvmutl
 	url = https://github.com/staticafi/libllvmutl
 	branch = main
+[submodule "text/template"]
+	path = text/template
+	url = https://gitlab.fi.muni.cz/xkushpel/fiquill.git
