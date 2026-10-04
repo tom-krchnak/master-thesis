@@ -6,9 +6,9 @@
 #include "salasym/outcome.hpp"
 #include "salasym/search.hpp"
 #include "salasym/state_store.hpp"
+#include "salasym/target.hpp"
 #include "salasym/stepper.hpp"
 #include "salasym/types.hpp"
-#include "utility/invariants.hpp"
 
 #include <span>
 #include <stdexcept>
@@ -28,10 +28,11 @@ struct ExecutionRecord
 struct Executor
 {
     Executor( const sala::Program &program,
-        const ExecConfig &config )
+            const ExecConfig &config )
         : _program( program )
         , _config( config )
-        , _stepper( program )
+        , _target( _program )
+        , _stepper( _program, _target )
     {}
 
     ~Executor();
@@ -40,7 +41,6 @@ struct Executor
 
     std::span< const ExecutionRecord > records() const
     {
-        INVARIANT( _run_completed );
         if ( !_run_completed )
             throw std::runtime_error( "no successfully completed execution run" );
 
@@ -51,6 +51,7 @@ private:
 
     const sala::Program &_program;
     const ExecConfig &_config;
+    TargetProfile _target;
     InstructionStepper _stepper;
 
     StateStore _states;

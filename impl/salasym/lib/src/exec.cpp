@@ -194,8 +194,7 @@ void Executor::init()
     ExecState &initial = _states.create();
     initial.frames.push_back( make_frame( initial, _program.entry_function() ) );
 
-    // TODO: remove hardcoded result size
-    ObjId result = alloc( initial, 32 );
+    ObjId result = alloc( initial, _target.int_width() );
     initial.memory.store( initial.frames.back().param( 0 ),
         Expr::address( result, 0 ) );
 

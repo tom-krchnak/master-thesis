@@ -15,6 +15,7 @@ target_sources(salasym-lib
         ${INC_DIR}/search/dfs.hpp
         ${INC_DIR}/state_store.hpp
         ${INC_DIR}/state.hpp
+        ${INC_DIR}/target.hpp
         ${INC_DIR}/stepper.hpp
         ${INC_DIR}/types.hpp
     PRIVATE
@@ -30,11 +31,17 @@ target_include_directories(salasym-lib
         "${CMAKE_CURRENT_SOURCE_DIR}/lib/include"
 )
 
+target_include_directories(salasym-lib SYSTEM
+    PUBLIC
+        ${LLVM_INCLUDE_DIRS}
+)
+
 target_link_libraries(salasym-lib
     PUBLIC
         sala
         utility
         ${BOOST_LIST_OF_LIBRARIES_TO_LINK_WITH}
+        ${SALASYM_LLVM_LIBRARIES}
 )
 
 add_executable(salasym)
